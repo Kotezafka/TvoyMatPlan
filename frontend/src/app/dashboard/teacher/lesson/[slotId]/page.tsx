@@ -1,0 +1,95 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { resolveLivekitUrl } from '@/lib/livekit-url';
+import { LessonRoom } from '@/components/lesson/lesson-room';
+import { parseLessonViewMode } from '@/lib/lesson';
+import type { LessonStatus } from '@/types';
+
+function Loading() {
+  return (
+    <div className="flex h-[calc(100vh-56px)] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+    </div>
+  );
+}
+
+function TeacherLessonRoom({
+  token,
+  livekitUrl,
+  lessonId,
+  lessonStatus,
+}: {
+  token: string;
+  livekitUrl: string;
+  lessonId: string;
+  lessonStatus: LessonStatus;
+}) {
+  const searchParams = useSearchParams();
+  return (
+    <LessonRoom
+      token={token}
+      livekitUrl={livekitUrl}
+      lessonId={lessonId}
+      initialStatus={lessonStatus}
+      isTeacher
+      backHref="/dashboard/teacher/calendar"
+      title="Ведение урока"
+      initialViewMode={parseLessonViewMode(searchParams.get('view'))}
+    />
+  );
+}
+
+export default function TeacherLessonPage() {
+  const { slotId } = useParams<{ slotId: string }>();
+  const router = useRouter();
+  const [connection, setConnection] = useState<{
+    token: string;
+    lessonId: string;
+    lessonStatus: LessonStatus;
+    livekitUrl: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get<{
+        token: string;
+        url?: string;
+        room: string;
+        lessonId: string;
+        lessonStatus: LessonStatus;
+      }>(`/video/token?slotId=${slotId}`)
+      .then((data) =>
+        setConnection({
+          ...data,
+          livekitUrl: resolveLivekitUrl(
+            data.url || process.env.NEXT_PUBLIC_LIVEKIT_URL,
+          ),
+        }),
+      )
+      .catch((err) => {
+        toast.error(err.response?.data?.message || 'Не удалось получить доступ к уроку');
+        router.push('/dashboard/teacher/calendar');
+      })
+      .finally(() => setLoading(false));
+  }, [slotId, router]);
+
+  if (loading) return <Loading />;
+  if (!connection) return null;
+
+  return (
+    <Suspense fallback={<Loading />}>
+      <TeacherLessonRoom
+        token={connection.token}
+        livekitUrl={connection.livekitUrl}
+        lessonId={connection.lessonId}
+        lessonStatus={connection.lessonStatus}
+      />
+    </Suspense>
+  );
+}

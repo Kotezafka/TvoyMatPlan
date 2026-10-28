@@ -1,0 +1,44 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Booking } from '../bookings/entities/booking.entity';
+import { CalendarSlot } from '../calendar/entities/calendar-slot.entity';
+import { Student } from '../students/entities/student.entity';
+import { Teacher } from '../teachers/entities/teacher.entity';
+import { User } from '../users/entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { Lesson } from './entities/lesson.entity';
+import { LessonProcessingService } from './lesson-processing.service';
+import { LessonsController } from './lessons.controller';
+import { LessonsService } from './lessons.service';
+import { PracticeService } from './practice.service';
+import { LivekitLifecycleService } from './livekit-lifecycle.service';
+import { LearningModule } from '../learning/learning.module';
+import { ComputeController } from './compute.controller';
+import { ComputeJob } from './entities/compute-job.entity';
+import { ComputeTokenGuard } from './compute-token.guard';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Lesson,
+      CalendarSlot,
+      Booking,
+      Teacher,
+      Student,
+      User,
+      ComputeJob,
+    ]),
+    NotificationsModule,
+    LearningModule,
+  ],
+  controllers: [LessonsController, ComputeController],
+  providers: [
+    LessonsService,
+    LivekitLifecycleService,
+    LessonProcessingService,
+    PracticeService,
+    ComputeTokenGuard,
+  ],
+  exports: [LessonsService, LivekitLifecycleService],
+})
+export class LessonsModule {}

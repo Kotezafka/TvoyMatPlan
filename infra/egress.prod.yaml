@@ -1,0 +1,13 @@
+api_key: PLACEHOLDER_KEY
+api_secret: PLACEHOLDER_SECRET
+# LiveKit uses host networking in the shared-VPS deployment. The Docker
+# bridge gateway reaches the host listener from the egress container.
+ws_url: ws://172.18.0.1:7880
+insecure: true
+
+redis:
+  address: redis:6379
+
+health_port: 8080
+prometheus_port: 8081
+backup_storage: /out

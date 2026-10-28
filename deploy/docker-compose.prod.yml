@@ -1,0 +1,124 @@
+# Production overrides for TutorPlatform on a shared VPS.
+# Usage:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml \
+#     --env-file deploy/.env.prod up -d --build
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - '127.0.0.1:5433:5432'
+
+  minio:
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - '127.0.0.1:9010:9000'
+      - '127.0.0.1:9011:9001'
+
+  minio-init:
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set tutor http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY" &&
+        mc mb --ignore-existing tutor/tutor-files
+
+  backend:
+    environment:
+      NODE_ENV: production
+      FRONTEND_URL: ${PUBLIC_URL}
+      GOOGLE_CALLBACK_URL: ${PUBLIC_URL}/api/auth/google/callback
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_PUBLIC_URL: ${PUBLIC_LIVEKIT_URL}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@easyphys.ru}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+      ENABLE_SEED: ${ENABLE_SEED:-false}
+      SMTP_DISABLED: ${SMTP_DISABLED:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      COMPUTE_API_URL: ${COMPUTE_API_URL:-}
+      COMPUTE_SECRET: ${COMPUTE_SECRET:-}
+      COMPUTE_MODE: ${COMPUTE_MODE:-remote}
+      ENABLE_DEMO_ACCOUNTS: ${ENABLE_DEMO_ACCOUNTS:-false}
+      DEMO_TEACHER_EMAIL: ${DEMO_TEACHER_EMAIL:-demo.teacher@easyphys.ru}
+      DEMO_TEACHER_PASSWORD: ${DEMO_TEACHER_PASSWORD:-DemoTeacher2026!}
+      DEMO_STUDENT_EMAIL: ${DEMO_STUDENT_EMAIL:-demo.student@easyphys.ru}
+      DEMO_STUDENT_PASSWORD: ${DEMO_STUDENT_PASSWORD:-DemoStudent2026!}
+    ports:
+      # Host :3001 is used by ekaterina-math.ru — bind backend to 3010
+      - '127.0.0.1:3010:3001'
+
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_URL}
+        NEXT_PUBLIC_LIVEKIT_URL: ${PUBLIC_LIVEKIT_URL}
+        NEXT_PUBLIC_DEMO_ACCOUNTS: ${ENABLE_DEMO_ACCOUNTS:-false}
+    environment:
+      NEXT_PUBLIC_API_URL: ${PUBLIC_URL}
+      NEXT_PUBLIC_LIVEKIT_URL: ${PUBLIC_LIVEKIT_URL}
+      NEXT_PUBLIC_DEMO_ACCOUNTS: ${ENABLE_DEMO_ACCOUNTS:-false}
+    ports:
+      - '127.0.0.1:3000:3000'
+
+  livekit:
+    ports:
+      - '7880:7880'
+      - '7881:7881'
+      - '7882:7882/udp'
+      - '3478:3478/udp'
+    volumes:
+      - ./infra/livekit.prod.yaml:/etc/livekit.yaml:ro
+    # Production config listens on 7880; the base compose file keeps 7890 for dev.
+    healthcheck:
+      test: ['CMD-SHELL', "grep -q ':1EC8 ' /proc/net/tcp /proc/net/tcp6"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  egress:
+    volumes:
+      - ./infra/egress.prod.yaml:/etc/egress.yaml:ro
+      - egress_backup:/out
+
+  transcriber:
+    profiles: [server-ai]
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      WHISPER_BEAM_SIZE: ${WHISPER_BEAM_SIZE:-1}
+      HF_HOME: /models
+
+  ollama:
+    profiles: [server-ai]
+    ports:
+      - '127.0.0.1:11434:11434'
+
+  ollama-pull:
+    profiles: [server-ai]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - ollama pull "$$OLLAMA_MODEL"

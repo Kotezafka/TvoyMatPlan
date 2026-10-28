@@ -1,0 +1,58 @@
+---
+title: TutorPlatform · локальная архитектура
+---
+flowchart LR
+    browser["Браузер<br/>ученик · преподаватель"]
+
+    subgraph local["Локальный компьютер · Docker Compose"]
+        direction LR
+        subgraph app["Приложение"]
+            direction TB
+            web["Next.js<br/>сайт и интерфейс урока"]
+            api["NestJS API<br/>пользователи · расписание · уроки"]
+        end
+        subgraph room["Комната урока"]
+            direction TB
+            livekit["LiveKit<br/>аудио · видео · data channel"]
+            redis[("Redis<br/>состояние LiveKit")]
+            egress["LiveKit Egress<br/>запись комнаты"]
+        end
+        subgraph data["Хранение"]
+            direction TB
+            postgres[("PostgreSQL<br/>пользователи · занятия · статусы")]
+            minio[("MinIO<br/>записи · доска · материалы · отчёты")]
+        end
+        subgraph ai["Локальная обработка"]
+            direction TB
+            whisper["FastAPI · faster-whisper<br/>транскрипция"]
+            ollama["Ollama · Qwen3<br/>отчёт по уроку"]
+        end
+    end
+
+    browser --> web
+    web --> api
+    browser <-->|"аудио · видео"| livekit
+    api -->|"токен комнаты"| livekit
+    livekit -->|"webhook"| api
+    api --> postgres
+    api --> minio
+    livekit --> redis
+    livekit --> egress
+    egress --> minio
+    minio -->|"аудиозапись"| whisper
+    whisper -->|"текст урока"| api
+    api -->|"контекст урока"| ollama
+    ollama -->|"отчёт"| api
+    api -->|"файлы результата"| minio
+    api -->|"статус урока"| postgres
+
+    classDef client fill:#F4F2EC,stroke:#AEB9B9,color:#203641,stroke-width:1px;
+    classDef appnode fill:#E8EFEA,stroke:#9FB2A6,color:#203641,stroke-width:1px;
+    classDef roomnode fill:#E7EEF2,stroke:#A3B4BE,color:#203641,stroke-width:1px;
+    classDef datanode fill:#F2EBDD,stroke:#C5B99F,color:#203641,stroke-width:1px;
+    classDef ainode fill:#EFE7E4,stroke:#C8ADA3,color:#203641,stroke-width:1px;
+    class browser client;
+    class web,api appnode;
+    class livekit,redis,egress roomnode;
+    class postgres,minio datanode;
+    class whisper,ollama ainode;

@@ -1,0 +1,56 @@
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { Teacher } from '../../teachers/entities/teacher.entity';
+import { Booking } from '../../bookings/entities/booking.entity';
+
+@Entity('students')
+export class Student {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @OneToOne(() => User, (user) => user.student, { onDelete: 'CASCADE' })
+  @JoinColumn()
+  user: User;
+
+  @Column()
+  userId: string;
+
+  @ManyToOne(() => Teacher, (teacher) => teacher.students, { nullable: true })
+  @JoinColumn()
+  teacher: Teacher;
+
+  @Column({ nullable: true })
+  teacherId: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  parentName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  parentEmail: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  parentReportQuestions: string[];
+
+  @Column({ type: 'varchar', nullable: true, unique: true, select: false })
+  familyAccessTokenHash: string | null;
+
+  @Column({ type: 'text', nullable: true, select: false })
+  familyAccessTokenCipherText: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb", select: false })
+  familyAccessTokenHashes: string[];
+
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  familyAccessTokenExpires: Date | null;
+
+  @OneToMany(() => Booking, (booking) => booking.student)
+  bookings: Booking[];
+}

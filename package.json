@@ -1,0 +1,24 @@
+{
+  "name": "tutor-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run start:dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "test:api": "node test/api.test.mjs",
+    "test:live-assist": "node --test --experimental-strip-types test/live-assist.test.ts",
+    "test:live-assist:unit": "node --test --experimental-strip-types test/live-assist.unit.test.ts",
+    "test:e2e": "playwright test",
+    "test:backend": "npm test --workspace=backend",
+    "test": "npm run test:backend && node --test --experimental-strip-types test/api-error.test.ts test/lesson-join.test.ts test/board-sync.test.ts test/nav.test.ts test/exam-statement.test.ts"
+  },
+  "dependencies": {
+    "ssh2": "^1.17.0"
+  }
+}
